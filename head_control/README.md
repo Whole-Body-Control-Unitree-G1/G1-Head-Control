@@ -8,13 +8,12 @@ Connected via U2D2 on `/dev/ttyUSB0` at 57600 baud.
 
 ### Prerequisites
 
-1. Follow the instructions on this page :
-    - [Dynamixel ROS2 Setup](https://emanual.robotis.com/docs/en/dxl/dxl-quick-start-guide/#dynamixel-quick-start-guide-for-ros-2)
+1. Install the Dynamixel SDK via apt:
+    ```
+    sudo apt-get install ros-$ROS_DISTRO-dynamixel-sdk
+    ```
 
-2. Always source the robotis_ws before running the nodes in this package.
-    ```
-    source ~/robotis_ws/install/setup.bash
-    ```
+2. Do **not** source `robotis_ws` before building — it overrides the apt installation and breaks `find_package(dynamixel_sdk)`.
 
 ### How to run
 
