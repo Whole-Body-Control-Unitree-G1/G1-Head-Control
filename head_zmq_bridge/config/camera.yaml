@@ -1,0 +1,7 @@
+/**:
+  ros__parameters:
+    cameras: ['ego']
+    ego:
+      topic: 'a'
+      zmq_port: 5555
+      quality: 80
