@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="head_zmq_bridge" exec="head_zmq_bridge">
+        <param from="$(find-pkg-share head_zmq_bridge)/config/camera.yaml"/>
+    </node>
+</launch>
