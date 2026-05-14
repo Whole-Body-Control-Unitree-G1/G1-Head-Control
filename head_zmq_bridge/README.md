@@ -2,6 +2,10 @@
 
 Bridges ROS 2 camera topics to ZMQ for GR00T data collection.
 
+## Architechture
+
+![](images/head_zmq_bridge_architecture_v4.svg)
+
 ## Prerequisites
 
 - The camera node must be running and publishing on the topics listed in `config/camera.yaml`
