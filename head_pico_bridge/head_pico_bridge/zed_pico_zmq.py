@@ -13,11 +13,11 @@ import zmq
 
 ZMQ_HOST     = '192.168.36.133'
 ZMQ_PORT     = 5555
-CAMERA_KEY   = 'ego_view'
+CAMERA_KEY   = 'stereo_view'
 COMMAND_PORT = 13579
 CAMERA_PORT  = 12345
 BITRATE      = 4_000_000
-FPS          = 30
+FPS          = 60
 
 # Set by command handler when PICO sends OPEN_CAMERA
 pico_ip   = None
