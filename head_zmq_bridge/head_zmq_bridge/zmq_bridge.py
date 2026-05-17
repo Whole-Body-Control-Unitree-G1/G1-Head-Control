@@ -1,5 +1,6 @@
 import cv2
 import msgpack
+from message_filters import ApproximateTimeSynchronizer, Subscriber
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -8,74 +9,53 @@ import zmq
 
 
 class ZMQBridgeNode(Node):
-    """ZMQBridgeNode class."""
+
     def __init__(self):
-        """
-        Create ZMQBridgeNode.
-
-        Reads camera config from ROS parameters and creates one
-        subscriber and one ZMQ PUB socket per camera.
-
-        Subscribers
-        -----------
-        <camera>.topic : sensor_msgs/msg/Image
-            One subscriber per camera, topic defined in config.
-
-        ZMQ Publishers
-        --------------
-        tcp://*:<camera>.zmq_port : msgpack
-            One PUB socket per camera, port defined in config.
-
-        """
         super().__init__('zmq_bridge')
         self.get_logger().info('zmq_bridge_node')
-        
-        # Create the self.camera_config
+
         self.create_config()
-        
-        #CvBridge
         self.bridge = CvBridge()
 
-        self.img_subscribers = {}
-        self.latest_frames = {}
-
-        # Create subscribers for each camera
-        for name, cfg in self.camera_config.items():
-            self.img_subscribers[name] = self.create_subscription(
-                Image,
-                cfg['topic'],
-                lambda msg, n=name : self.img_callback(msg, n),
-                10
-            )
-
-        # Single ZMQ socket shared across all cameras
         self.ctx = zmq.Context()
         self.socket = self.ctx.socket(zmq.PUB)
-        self.socket.bind(f"tcp://*:{self.zmq_port}")
+        self.socket.bind(f'tcp://*:{self.zmq_port}')
+        self.standalone_socket = self.ctx.socket(zmq.PUB)
+        self.standalone_socket.bind(f'tcp://*:{self.standalone_zmq_port}')
 
+        # Synchronized subscribers for GR00T cameras (combined message, time-aligned)
+        if self.sync_cameras:
+            sync_subs = [
+                Subscriber(self, Image, self.camera_config[n]['topic'])
+                for n in self.sync_cameras
+            ]
+            self.sync_qualities = [self.camera_config[n]['quality'] for n in self.sync_cameras]
+            ts = ApproximateTimeSynchronizer(sync_subs, queue_size=10, slop=0.05)
+            ts.registerCallback(self.sync_callback)
+
+        # Standalone subscribers (one message per camera, e.g. stereo for PICO)
+        self.standalone_subs = {}
+        for name in self.standalone_cameras:
+            self.standalone_subs[name] = self.create_subscription(
+                Image,
+                self.camera_config[name]['topic'],
+                lambda msg, n=name: self.standalone_callback(msg, n),
+                10,
+            )
 
     def create_config(self):
-        """
-        Declare and read ROS parameters to build the camera configuration.
+        self.declare_parameter('sync_cameras', rclpy.Parameter.Type.STRING_ARRAY)
+        self.declare_parameter('standalone_cameras', rclpy.Parameter.Type.STRING_ARRAY)
+        self.declare_parameter('zmq_port', rclpy.Parameter.Type.INTEGER)
+        self.declare_parameter('standalone_zmq_port', rclpy.Parameter.Type.INTEGER)
 
-        Args
-        ----
-        None
-
-        Returns
-        -------
-        None
-
-        """
-        self.declare_parameter('cameras', rclpy.Parameter.Type.STRING_ARRAY)
-        self.cameras = self.get_parameter('cameras').get_parameter_value().string_array_value
+        self.sync_cameras = self.get_parameter('sync_cameras').get_parameter_value().string_array_value
+        self.standalone_cameras = self.get_parameter('standalone_cameras').get_parameter_value().string_array_value
+        self.zmq_port = self.get_parameter('zmq_port').value
+        self.standalone_zmq_port = self.get_parameter('standalone_zmq_port').value
 
         self.camera_config = {}
-
-        self.declare_parameter('zmq_port', rclpy.Parameter.Type.INTEGER)
-        self.zmq_port = self.get_parameter('zmq_port').value
-
-        for name in self.cameras:
+        for name in list(self.sync_cameras) + list(self.standalone_cameras):
             self.declare_parameter(f'{name}.topic', rclpy.Parameter.Type.STRING)
             self.declare_parameter(f'{name}.quality', rclpy.Parameter.Type.INTEGER)
             self.camera_config[name] = {
@@ -83,46 +63,35 @@ class ZMQBridgeNode(Node):
                 'quality': self.get_parameter(f'{name}.quality').value,
             }
 
-    def img_callback(self, msg, name):
-        """
-        Image callback to receive and forward camera frames via ZMQ.
-
-        Args
-        ----
-        msg : sensor_msgs/msg/Image
-            Incoming image message from the camera topic.
-
-        name : str
-            Camera name used to look up config and ZMQ socket.
-
-        Returns
-        -------
-        None
-
-        """
-
-        cfg = self.camera_config[name]
+    def _encode(self, msg, quality):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        _, jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, cfg['quality']])
+        _, jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
         ts = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        return ts, jpg.tobytes()
 
-        self.latest_frames[name] = {'ts': ts, 'jpg': jpg.tobytes()}
-
-        if len(self.latest_frames) < len(self.camera_config):
-            return
-
-        payload = msgpack.packb(
-            {
-                'timestamps': {n: v['ts']  for n, v in self.latest_frames.items()},
-                'images':     {n: v['jpg'] for n, v in self.latest_frames.items()},
-            },
+    def sync_callback(self, *msgs):
+        """Fires when all GR00T cameras have a time-aligned frame."""
+        timestamps = {}
+        images = {}
+        for name, msg in zip(self.sync_cameras, msgs):
+            ts, jpg = self._encode(msg, self.camera_config[name]['quality'])
+            timestamps[name] = ts
+            images[name] = jpg
+        self.socket.send(msgpack.packb(
+            {'timestamps': timestamps, 'images': images},
             use_bin_type=True,
-        )
-        self.socket.send(payload)
+        ))
+
+    def standalone_callback(self, msg, name):
+        """Fires independently for each standalone camera (e.g. stereo for PICO)."""
+        ts, jpg = self._encode(msg, self.camera_config[name]['quality'])
+        self.standalone_socket.send(msgpack.packb(
+            {'timestamps': {name: ts}, 'images': {name: jpg}},
+            use_bin_type=True,
+        ))
 
 
 def main(args=None):
-    """Entrypoint for zmq_bridge node."""
     rclpy.init(args=args)
     node = ZMQBridgeNode()
     rclpy.spin(node)
