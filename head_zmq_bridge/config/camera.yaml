@@ -3,5 +3,5 @@
     cameras: ['ego_view']
     zmq_port: 5555
     ego_view:
-      topic: 'a'
+      topic: '/zed/zed_node/stereo/color/rect/image'
       quality: 80
