@@ -47,14 +47,10 @@ class ZMQBridgeNode(Node):
                 10
             )
 
-        # Create the ZMQ sockets for each camera
+        # Single ZMQ socket shared across all cameras
         self.ctx = zmq.Context()
-        self.sockets = {}
-
-        for name, cfg in self.camera_config.items():
-            sock = self.ctx.socket(zmq.PUB)
-            sock.bind(f"tcp://*:{cfg['zmq_port']}")
-            self.sockets[name] = sock
+        self.socket = self.ctx.socket(zmq.PUB)
+        self.socket.bind(f"tcp://*:{self.zmq_port}")
 
 
     def create_config(self):
@@ -75,14 +71,15 @@ class ZMQBridgeNode(Node):
 
         self.camera_config = {}
 
+        self.declare_parameter('zmq_port', rclpy.Parameter.Type.INTEGER)
+        self.zmq_port = self.get_parameter('zmq_port').value
+
         for name in self.cameras:
             self.declare_parameter(f'{name}.topic', rclpy.Parameter.Type.STRING)
-            self.declare_parameter(f'{name}.zmq_port', rclpy.Parameter.Type.INTEGER)
             self.declare_parameter(f'{name}.quality', rclpy.Parameter.Type.INTEGER)
             self.camera_config[name] = {
-                'topic':    self.get_parameter(f'{name}.topic').get_parameter_value().string_value,
-                'zmq_port': self.get_parameter(f'{name}.zmq_port').value,
-                'quality':  self.get_parameter(f'{name}.quality').value,
+                'topic':   self.get_parameter(f'{name}.topic').get_parameter_value().string_value,
+                'quality': self.get_parameter(f'{name}.quality').value,
             }
 
     def img_callback(self, msg, name):
@@ -107,9 +104,12 @@ class ZMQBridgeNode(Node):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         _, jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, cfg['quality']])
         ts = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        payload = msgpack.packb({'timestamps': [ts], 'images': [jpg.tobytes()]})
+        payload = msgpack.packb(
+            {'timestamps': {name: ts}, 'images': {name: jpg.tobytes()}},
+            use_bin_type=True,
+        )
 
-        self.sockets[name].send(payload)
+        self.socket.send(payload)
 
 
 def main(args=None):
