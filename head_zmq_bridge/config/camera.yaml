@@ -1,9 +1,11 @@
 /**:
   ros__parameters:
-    cameras: ['ego_view', 'stereo_view']
+    sync_cameras: ['ego_view']
+    standalone_cameras: ['stereo_view']
     zmq_port: 5555
+    standalone_zmq_port: 5558
     ego_view:
-      topic: '/zed/zed_node/rgb/image_rect_color'
+      topic: '/zed/zed_node/rgb/color/rect/image'
       quality: 85
     stereo_view:
       topic: '/zed/zed_node/stereo/color/rect/image'
