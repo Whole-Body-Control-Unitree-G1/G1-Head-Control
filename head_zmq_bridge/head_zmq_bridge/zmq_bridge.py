@@ -37,6 +37,7 @@ class ZMQBridgeNode(Node):
         self.bridge = CvBridge()
 
         self.img_subscribers = {}
+        self.latest_frames = {}
 
         # Create subscribers for each camera
         for name, cfg in self.camera_config.items():
@@ -104,11 +105,19 @@ class ZMQBridgeNode(Node):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         _, jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, cfg['quality']])
         ts = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+
+        self.latest_frames[name] = {'ts': ts, 'jpg': jpg.tobytes()}
+
+        if len(self.latest_frames) < len(self.camera_config):
+            return
+
         payload = msgpack.packb(
-            {'timestamps': {name: ts}, 'images': {name: jpg.tobytes()}},
+            {
+                'timestamps': {n: v['ts']  for n, v in self.latest_frames.items()},
+                'images':     {n: v['jpg'] for n, v in self.latest_frames.items()},
+            },
             use_bin_type=True,
         )
-
         self.socket.send(payload)
 
 
