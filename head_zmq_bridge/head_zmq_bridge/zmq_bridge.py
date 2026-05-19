@@ -19,8 +19,10 @@ class ZMQBridgeNode(Node):
 
         self.ctx = zmq.Context()
         self.socket = self.ctx.socket(zmq.PUB)
+        self.socket.setsockopt(zmq.CONFLATE, 1)
         self.socket.bind(f'tcp://*:{self.zmq_port}')
         self.standalone_socket = self.ctx.socket(zmq.PUB)
+        self.standalone_socket.setsockopt(zmq.CONFLATE, 1)
         self.standalone_socket.bind(f'tcp://*:{self.standalone_zmq_port}')
 
         # Synchronized subscribers for GR00T cameras (combined message, time-aligned)
