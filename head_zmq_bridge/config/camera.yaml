@@ -7,6 +7,8 @@
     ego_view:
       topic: '/zed/zed_node/rgb/color/rect/image'
       quality: 85
+      width: 640
+      height: 480
     stereo_view:
       topic: '/zed/zed_node/stereo/color/rect/image'
       quality: 80

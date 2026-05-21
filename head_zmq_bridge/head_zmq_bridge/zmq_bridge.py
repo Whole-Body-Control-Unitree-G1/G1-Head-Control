@@ -60,13 +60,20 @@ class ZMQBridgeNode(Node):
         for name in list(self.sync_cameras) + list(self.standalone_cameras):
             self.declare_parameter(f'{name}.topic', rclpy.Parameter.Type.STRING)
             self.declare_parameter(f'{name}.quality', rclpy.Parameter.Type.INTEGER)
+            self.declare_parameter(f'{name}.width', value=0)
+            self.declare_parameter(f'{name}.height', value=0)
+            w = self.get_parameter(f'{name}.width').value
+            h = self.get_parameter(f'{name}.height').value
             self.camera_config[name] = {
-                'topic':   self.get_parameter(f'{name}.topic').get_parameter_value().string_value,
-                'quality': self.get_parameter(f'{name}.quality').value,
+                'topic':       self.get_parameter(f'{name}.topic').get_parameter_value().string_value,
+                'quality':     self.get_parameter(f'{name}.quality').value,
+                'target_size': (w, h) if w > 0 and h > 0 else None,
             }
 
-    def _encode(self, msg, quality):
+    def _encode(self, msg, quality, target_size=None):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        if target_size is not None:
+            frame = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
         _, jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
         ts = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         return ts, jpg.tobytes()
@@ -76,7 +83,7 @@ class ZMQBridgeNode(Node):
         timestamps = {}
         images = {}
         for name, msg in zip(self.sync_cameras, msgs):
-            ts, jpg = self._encode(msg, self.camera_config[name]['quality'])
+            ts, jpg = self._encode(msg, self.camera_config[name]['quality'], self.camera_config[name]['target_size'])
             timestamps[name] = ts
             images[name] = jpg
         self.socket.send(msgpack.packb(
@@ -86,7 +93,7 @@ class ZMQBridgeNode(Node):
 
     def standalone_callback(self, msg, name):
         """Fires independently for each standalone camera (e.g. stereo for PICO)."""
-        ts, jpg = self._encode(msg, self.camera_config[name]['quality'])
+        ts, jpg = self._encode(msg, self.camera_config[name]['quality'], self.camera_config[name]['target_size'])
         self.standalone_socket.send(msgpack.packb(
             {'timestamps': {name: ts}, 'images': {name: jpg}},
             use_bin_type=True,
