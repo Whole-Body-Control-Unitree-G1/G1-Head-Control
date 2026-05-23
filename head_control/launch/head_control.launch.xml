@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="head_control" exec="head_control_node" name="head_control_node" output="screen">
+        <param from="$(find-pkg-share head_control)/config/calib.yaml"/>
+    </node>
+</launch>
