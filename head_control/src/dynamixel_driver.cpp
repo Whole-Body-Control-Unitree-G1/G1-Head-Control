@@ -1,4 +1,6 @@
 #include "head_control/dynamixel_driver.hpp"
+#include <stdexcept>
+#include <string>
 
 DynamixelDriver::DynamixelDriver()
 {

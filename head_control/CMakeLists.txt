@@ -5,39 +5,65 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
-
 find_package(rclcpp REQUIRED)
 find_package(dynamixel_sdk REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(yaml-cpp REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 
 include_directories(include)
+
+# Shared driver library
+add_library(dynamixel_driver src/dynamixel_driver.cpp)
+target_link_libraries(dynamixel_driver PUBLIC
+  dynamixel_sdk::dynamixel_sdk
+)
+target_include_directories(dynamixel_driver PUBLIC include)
+
+# head_control_node
 add_executable(head_control_node src/head_control_node.cpp)
-target_link_libraries(head_control_node PUBLIC
-dynamixel_sdk::dynamixel_sdk
-rclcpp::rclcpp
-${std_msgs_TARGETS}
-${sensor_msgs_TARGETS}
+target_link_libraries(head_control_node PRIVATE
+  dynamixel_driver
+  rclcpp::rclcpp
+  ${std_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+)
+
+# calibration_node
+add_executable(calibration_node src/calibration_node.cpp)
+target_link_libraries(calibration_node PRIVATE
+  dynamixel_driver
+  rclcpp::rclcpp
+  yaml-cpp
+  ament_index_cpp::ament_index_cpp
+)
+
+install(TARGETS dynamixel_driver
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 install(TARGETS
-head_control_node
-DESTINATION lib/${PROJECT_NAME}
+  head_control_node
+  calibration_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install config directory so calibration can write calib.yaml there
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()

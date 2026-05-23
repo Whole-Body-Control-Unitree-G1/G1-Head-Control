@@ -7,10 +7,12 @@
   <maintainer email="kjyothiswaroop00@gmail.com">kjyothiswaroop</maintainer>
   <license>MIT</license>
 
-  <depend> rclcpp </depend>
-  <depend> dynamixel_sdk </depend>
-  <depend> std_msgs </depend>
-  <depend> sensor_msgs </depend>
+  <depend>rclcpp</depend>
+  <depend>dynamixel_sdk</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>yaml-cpp</depend>
+  <depend>ament_index_cpp</depend>
   
   <buildtool_depend>ament_cmake</buildtool_depend>
 

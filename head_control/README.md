@@ -24,12 +24,17 @@ Connected via U2D2 on `/dev/ttyUSB0` at 57600 baud.
     source install/setup.bash
     ```
 
-2. Run the node:
+2. Calibrate (first time only):
     ```
-    ros2 run head_control head_control_node
+    ros2 run head_control calibration_node
     ```
+    Torque is disabled during calibration — move each joint by hand to its extremes when prompted. The node computes the center automatically and saves `calib.yaml` to the package share directory.
 
-On startup the head drives to the neutral (forward-facing) position automatically.
+3. Run the control node:
+    ```
+    ros2 launch head_control head_control.launch.xml
+    ```
+    On startup the head drives to the calibrated center position automatically.
 
 ### Topics
 
@@ -70,5 +75,4 @@ ros2 topic pub --once /head/target sensor_msgs/msg/JointState "{name: ['yaw'], p
 | Operating mode | Extended Position Control (mode 4) |
 | Pitch motor ID | 1 |
 | Yaw motor ID | 2 |
-| Pitch neutral tick | 3736 |
-| Yaw neutral tick | 3624 |
+| Neutral ticks | Set by calibration (`calib.yaml`) |
