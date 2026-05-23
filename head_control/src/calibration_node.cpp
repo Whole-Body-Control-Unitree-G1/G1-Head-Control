@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <yaml-cpp/yaml.h>
+#include <thread>
+#include <chrono>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
 CalibrationNode::CalibrationNode() : Node("calibration_node")
@@ -93,7 +95,15 @@ void CalibrationNode::run()
 
     // Move to the center
     RCLCPP_INFO(get_logger(), "Moving to center ...");
-    driver_.write_goal_positions(pitch.center, yaw.center);
+    
+    if(driver_.write_goal_positions(pitch.center, yaw.center))
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+    }
+    else
+    {
+        RCLCPP_ERROR(get_logger(), "Failed to send goal positions to motors");
+    }
 
     // Save calibration data
     save_calib(pitch, yaw);

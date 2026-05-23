@@ -21,8 +21,8 @@ public:
 
     // Exposed for tick math in nodes
     static constexpr double TICKS_PER_RAD = 4096.0 / (2.0 * M_PI);
-    static constexpr int    PITCH_ID      = 1;
-    static constexpr int    YAW_ID        = 2;
+    static constexpr int    PITCH_ID      = 2;
+    static constexpr int    YAW_ID        = 1;
 
 private:
     // Control table addresses (X-series, Protocol 2.0)
@@ -42,7 +42,7 @@ private:
     // Hardware config
     static constexpr double   PROTOCOL_VERSION = 2.0;
     static constexpr int      BAUDRATE         = 57600;
-    static constexpr char     DEVICE_NAME[]    = "/dev/ttyUSB0";
+    static constexpr char     DEVICE_NAME[]    = "/dev/ttyUSB4";
     static constexpr uint32_t PROFILE_VELOCITY = 100;
 
     dynamixel::PortHandler    *port_handler_  {nullptr};
