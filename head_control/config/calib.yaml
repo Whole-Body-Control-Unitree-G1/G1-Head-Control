@@ -1,10 +1,10 @@
 /**:
   ros__parameters:
     pitch:
-      min: -482
-      max: 524
-      center: 21
+      min: 1575
+      max: 2588
+      center: 2081
     yaw:
-      min: 2623
-      max: 4318
-      center: 3470
+      min: 1618
+      max: 3306
+      center: 2462
