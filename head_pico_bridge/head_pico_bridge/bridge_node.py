@@ -7,7 +7,6 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 
-ZMQ_HOST  = "192.168.36.214"
 ZMQ_PORT  = 5556
 ZMQ_TOPIC = "pose"
 
@@ -57,12 +56,15 @@ class HeadPicoBridge(Node):
     def __init__(self):
         super().__init__("head_pico_bridge")
 
+        self.declare_parameter("zmq_host", "192.168.36.214")
+        zmq_host = self.get_parameter("zmq_host").get_parameter_value().string_value
+
         self._pub = self.create_publisher(JointState, "head/target", 10)
 
         ctx = zmq.Context()
 
         self._sock = ctx.socket(zmq.SUB)
-        self._sock.connect(f"tcp://{ZMQ_HOST}:{ZMQ_PORT}")
+        self._sock.connect(f"tcp://{zmq_host}:{ZMQ_PORT}")
         self._sock.setsockopt_string(zmq.SUBSCRIBE, ZMQ_TOPIC)
         self._sock.setsockopt_string(zmq.SUBSCRIBE, "planner")
 
@@ -79,7 +81,7 @@ class HeadPicoBridge(Node):
         self.create_timer(0.02, self._poll)  # 50 Hz
         self.get_logger().info(
             f"Head PICO bridge started — "
-            f"SUB tcp://{ZMQ_HOST}:{ZMQ_PORT}, "
+            f"SUB tcp://{zmq_host}:{ZMQ_PORT}, "
             f"PUB tcp://*:{ZMQ_STATE_PORT}"
         )
         self.get_logger().info("Head will auto-calibrate on first message. Press right menu button to re-calibrate.")

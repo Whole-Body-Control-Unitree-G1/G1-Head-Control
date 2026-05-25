@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="head_control" exec="calibration_node" name="calibration_node" output="screen"/>
+</launch>

@@ -1,0 +1,13 @@
+<launch>
+    <arg name="zmq_host" default="192.168.36.214"/>
+
+    <include file="$(find-pkg-share head_control)/launch/head_control.launch.xml"/>
+
+    <node pkg="head_pico_bridge" exec="head_pico_bridge" name="head_pico_bridge" output="screen">
+        <param name="zmq_host" value="$(var zmq_host)"/>
+    </node>
+
+    <node pkg="head_zmq_bridge" exec="head_zmq_bridge" name="head_zmq_bridge" output="screen">
+        <param from="$(find-pkg-share head_zmq_bridge)/config/camera.yaml"/>
+    </node>
+</launch>
