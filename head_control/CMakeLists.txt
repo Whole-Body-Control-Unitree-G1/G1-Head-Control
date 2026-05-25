@@ -52,10 +52,17 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Install config directory so calibration can write calib.yaml there
-install(DIRECTORY config/
-  DESTINATION share/${PROJECT_NAME}/config
-)
+# Install other config files normally, but symlink calib.yaml back to the source
+# so that calibration writes persist across builds (writing to the install path
+# goes through the symlink and updates the source file directly).
+install(CODE "
+  file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/share/head_control/config\")
+  file(CREATE_LINK
+    \"${CMAKE_CURRENT_SOURCE_DIR}/config/calib.yaml\"
+    \"\${CMAKE_INSTALL_PREFIX}/share/head_control/config/calib.yaml\"
+    SYMBOLIC
+  )
+")
 
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
