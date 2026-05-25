@@ -12,7 +12,7 @@ import numpy as np
 import zmq
 
 ZMQ_HOST     = '192.168.36.133'
-ZMQ_PORT     = 5558
+ZMQ_PORT     = 5559
 CAMERA_KEY   = 'stereo_view'
 COMMAND_PORT = 13579
 CAMERA_PORT  = 12345

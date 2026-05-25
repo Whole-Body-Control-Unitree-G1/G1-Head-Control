@@ -10,4 +10,9 @@
     <node pkg="head_zmq_bridge" exec="head_zmq_bridge" name="head_zmq_bridge" output="screen">
         <param from="$(find-pkg-share head_zmq_bridge)/config/camera.yaml"/>
     </node>
+
+    <include file="$(find-pkg-share zed_wrapper)/launch/zed_camera.launch.py">
+      <arg name="camera_model" value="zedm"/>
+    </include>
+
 </launch>

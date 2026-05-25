@@ -3,7 +3,7 @@
     sync_cameras: ['ego_view']
     standalone_cameras: ['stereo_view']
     zmq_port: 5555
-    standalone_zmq_port: 5558
+    standalone_zmq_port: 5559
     ego_view:
       topic: '/zed/zed_node/rgb/color/rect/image'
       quality: 85
