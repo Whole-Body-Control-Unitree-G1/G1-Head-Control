@@ -21,13 +21,34 @@ HeadControlNode::HeadControlNode() : Node("head_control_node")
     RCLCPP_INFO(get_logger(), "Calibration loaded — pitch: [%d, %d, %d]  yaw: [%d, %d, %d]",
         pitch_min_, pitch_center_, pitch_max_, yaw_min_, yaw_center_, yaw_max_);
 
-    try 
+    try
     {
         driver_.init();
+
+        // Read current position BEFORE enabling torque so we can write the goal
+        // to match it — prevents a sudden lurch to center on restart.
+        //
+        // In Extended Position Mode the motor reinitialises its multi-turn counter
+        // to the value nearest 0 at each power-on, which shifts positions by ±4096
+        // relative to the calibrated range.  unwrap_pitch() corrects for this.
+        int32_t cur_pitch = pitch_center_, cur_yaw = yaw_center_;
+        if (driver_.read_current_positions(cur_pitch, cur_yaw)) {
+            cur_pitch = unwrap_pitch(cur_pitch);
+            goal_pitch_pos_ = clamp_pos(cur_pitch, pitch_min_, pitch_max_);
+            goal_yaw_pos_   = clamp_pos(cur_yaw,   yaw_min_,  yaw_max_);
+            driver_.write_goal_positions(goal_pitch_pos_, goal_yaw_pos_);
+            RCLCPP_INFO(get_logger(), "Current position read — pitch: %d (unwrapped)  yaw: %d",
+                cur_pitch, cur_yaw);
+        } else {
+            RCLCPP_WARN(get_logger(), "Could not read current position at startup; defaulting to center");
+            goal_pitch_pos_ = pitch_center_;
+            goal_yaw_pos_   = yaw_center_;
+        }
+
         driver_.enable_torque(DynamixelDriver::PITCH_ID);
         driver_.enable_torque(DynamixelDriver::YAW_ID);
-    } 
-    catch (const std::exception & e) 
+    }
+    catch (const std::exception & e)
     {
         RCLCPP_ERROR(get_logger(), "Driver setup failed: %s", e.what());
         throw;
@@ -45,10 +66,12 @@ HeadControlNode::HeadControlNode() : Node("head_control_node")
         std::bind(&HeadControlNode::publish_state, this)
     );
 
+    // Now that torque is on and the motor is holding its current position,
+    // move smoothly to center.
     goal_pitch_pos_ = pitch_center_;
     goal_yaw_pos_   = yaw_center_;
     driver_.write_goal_positions(goal_pitch_pos_, goal_yaw_pos_);
-    RCLCPP_INFO(get_logger(), "Head centered at startup");
+    RCLCPP_INFO(get_logger(), "Moving to center at startup");
 }
 
 HeadControlNode::~HeadControlNode() {}
@@ -66,6 +89,24 @@ double HeadControlNode::pos_to_rad(int32_t pos, int32_t center)
 int32_t HeadControlNode::clamp_pos(int32_t pos, int32_t lo, int32_t hi)
 {
     return std::max(lo, std::min(hi, pos));
+}
+
+int32_t HeadControlNode::unwrap_pitch(int32_t pos) const
+{
+    // Extended Position Mode reinitialises the multi-turn counter to the value
+    // nearest 0 at each power-on, which can shift the reading by exactly ±4096
+    // relative to the calibrated range.  Try the three candidates and return
+    // whichever sits inside [pitch_min_, pitch_max_].
+    for (int32_t offset : {0, 4096, -4096}) {
+        int32_t candidate = pos + offset;
+        if (candidate >= pitch_min_ && candidate <= pitch_max_)
+            return candidate;
+    }
+    // Outside all candidates — log and return nearest candidate to center.
+    RCLCPP_WARN(get_logger(),
+        "pitch position %d not near calibrated range [%d, %d] after unwrap",
+        pos, pitch_min_, pitch_max_);
+    return pos;
 }
 
 void HeadControlNode::target_callback(const sensor_msgs::msg::JointState::SharedPtr msg)

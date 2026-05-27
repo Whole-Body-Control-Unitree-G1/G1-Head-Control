@@ -10,6 +10,9 @@ from sensor_msgs.msg import JointState
 ZMQ_PORT  = 5556
 ZMQ_TOPIC = "pose"
 
+PITCH_SCALE = 2.0
+YAW_SCALE   = 2.0
+
 ZMQ_STATE_PORT  = 5558
 ZMQ_STATE_TOPIC = "head_state"
 
@@ -129,10 +132,13 @@ class HeadPicoBridge(Node):
 
         pitch, yaw = quat_to_pitch_yaw(w, x, y, z)
 
+        PITCH_SCALE = 2.0
+        YAW_SCALE   = 2.0
+
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name     = ["pitch", "yaw"]
-        msg.position = [pitch, yaw]
+        msg.position = [pitch * PITCH_SCALE, yaw * YAW_SCALE]
         self._pub.publish(msg)
 
     def _state_callback(self, msg: JointState):

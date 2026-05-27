@@ -18,6 +18,7 @@ private:
     static int32_t rad_to_pos(double rad, int32_t center);
     static double  pos_to_rad(int32_t pos, int32_t center);
     static int32_t clamp_pos(int32_t pos, int32_t lo, int32_t hi);
+    int32_t        unwrap_pitch(int32_t pos) const;
 
     void target_callback(const sensor_msgs::msg::JointState::SharedPtr msg);
     void publish_state();
